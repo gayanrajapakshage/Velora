@@ -2,7 +2,8 @@ services:
   - type: web
     name: velora-api
     runtime: docker
-    plan: starter
+    # Free spins down when idle; first request after a quiet stretch is slow.
+    plan: free
     region: oregon
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
