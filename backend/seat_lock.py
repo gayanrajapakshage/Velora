@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
@@ -64,6 +65,23 @@ def stats_key(showing_id: int | str) -> str:
 
 def redis_from_env() -> Redis:
     return Redis.from_env()
+
+
+async def _redis_call(operation, attempts: int = 4):
+    """Retry brief Upstash blips instead of failing the whole seat map.
+
+    Free-tier Redis over REST is chatty under concurrent mget/eval. A short
+    backoff here is cheaper than returning 500 to every open browser tab.
+    """
+    last: BaseException | None = None
+    for attempt in range(attempts):
+        try:
+            return await operation()
+        except Exception as exc:  # noqa: BLE001 — surface after retries
+            last = exc
+            await asyncio.sleep(0.2 * (attempt + 1))
+    assert last is not None
+    raise last
 
 
 def public_holder(token: str) -> str:
@@ -178,7 +196,7 @@ async def release_seat(
 
 async def read_stats(redis: Redis, showing_id: int | str) -> dict[str, int]:
     """Claim tallies kept by the script itself, not by the caller."""
-    data = await redis.hgetall(stats_key(showing_id))
+    data = await _redis_call(lambda: redis.hgetall(stats_key(showing_id)))
     return {
         "claims": int((data or {}).get("claims") or 0),
         "collisions": int((data or {}).get("collisions") or 0),
@@ -196,7 +214,8 @@ async def read_seat_map(
     """
     if not seat_ids:
         return {}
-    values = await redis.mget(*[seat_key(showing_id, s) for s in seat_ids])
+    keys = [seat_key(showing_id, s) for s in seat_ids]
+    values = await _redis_call(lambda: redis.mget(*keys))
     return {
         seat_id: _parse(value, seat_id)
         for seat_id, value in zip(seat_ids, values or [])

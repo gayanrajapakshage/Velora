@@ -86,6 +86,7 @@ export default function SeatMapClient({ showingId }: { showingId: string }) {
   const wsRef = useRef<WebSocket | null>(null);
   const stopRef = useRef(false);
   const genRef = useRef(0);
+  const backoffRef = useRef(1000);
   const [statsBase, setStatsBase] = useState<ClaimStats | null>(null);
   const [resetting, setResetting] = useState(false);
 
@@ -118,13 +119,33 @@ export default function SeatMapClient({ showingId }: { showingId: string }) {
   const connect = useCallback(async () => {
     const gen = ++genRef.current;
     setFeed("resync");
-    await sync();
+    try {
+      await sync();
+      backoffRef.current = 1000;
+    } catch (err) {
+      // Surface the failure, then back off and retry. A tight loop against
+      // a flaky free-tier API makes the 500s worse.
+      if (gen === genRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to load seat map");
+        if (!stopRef.current) {
+          const delay = backoffRef.current;
+          backoffRef.current = Math.min(delay * 2, 15000);
+          window.setTimeout(() => {
+            if (gen === genRef.current && !stopRef.current) void connect();
+          }, delay);
+        }
+      }
+      return;
+    }
     if (stopRef.current || gen !== genRef.current) return;
 
     const socket = new WebSocket(`${WS_URL}/showings/${showingId}/live`);
     wsRef.current = socket;
     socket.onopen = () => {
-      if (gen === genRef.current) setFeed("on");
+      if (gen === genRef.current) {
+        setFeed("on");
+        backoffRef.current = 1000;
+      }
     };
     socket.onmessage = (event) => {
       try {
@@ -151,16 +172,18 @@ export default function SeatMapClient({ showingId }: { showingId: string }) {
           return next;
         });
       } catch {
-        void sync();
+        void sync().catch(() => undefined);
       }
     };
     socket.onclose = () => {
       if (wsRef.current !== socket) return;
       setFeed("off");
       if (!stopRef.current) {
+        const delay = backoffRef.current;
+        backoffRef.current = Math.min(delay * 2, 15000);
         window.setTimeout(() => {
           if (gen === genRef.current) void connect();
-        }, 600);
+        }, delay);
       }
     };
   }, [showingId, sync]);

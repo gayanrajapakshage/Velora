@@ -25,5 +25,7 @@ services:
       # Must include the Vercel origin, or the browser blocks every call.
       - key: CORS_ORIGINS
         sync: false
+      # Keep this in the dashboard so a blueprint sync cannot turn bots
+      # back on and overwhelm free-tier Redis. Use 0 until the site is stable.
       - key: SIMULATE_PATRONS
-        value: "1"
+        sync: false
