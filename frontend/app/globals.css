@@ -1,0 +1,119 @@
+/* Primitive → semantic tokens. Pop box office, same type and shapes. */
+:root {
+  --ink-950: #1c1218;
+  --ink-700: #5c3d4e;
+  --ink-500: #8a6b7a;
+  --paper-0: #ffffff;
+  --paper-50: #faf4f7;
+  --paper-100: #f3e6ed;
+  --line: #e5cfd9;
+  --navy: #9d174d;
+  --navy-hover: #7f123d;
+  --hold: #b45309;
+  --hold-fill: #fde8c8;
+  --sold: #3d3538;
+  --open: #9d174d;
+  --open-fill: #ffffff;
+  --mine: #9d174d;
+  --mine-booked: #6b2178;
+  --danger: #be123c;
+  --ok: #0f766e;
+
+  --color-primary: var(--navy);
+  --color-on-primary: var(--paper-0);
+  --color-background: var(--paper-50);
+  --color-foreground: var(--ink-950);
+  --color-card: var(--paper-0);
+  --color-muted: var(--paper-100);
+  --color-muted-foreground: var(--ink-500);
+  --color-border: var(--line);
+  --color-destructive: var(--danger);
+  --color-hold: var(--hold);
+  --color-accent: var(--navy);
+  --color-ring: var(--navy);
+
+  --font-sans: var(--font-ibm-sans), "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-mono: var(--font-ibm-mono), "IBM Plex Mono", ui-monospace, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --type-label: 11px;
+  --type-body: 14px;
+  --type-title: 18px;
+  --type-display: 28px;
+
+  --radius: 4px;
+  --header: 56px;
+  --dock: 360px;
+  --motion: 160ms;
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --shadow: 0 1px 0 rgba(22, 21, 19, 0.04);
+}
+
+html {
+  height: 100%;
+  color-scheme: light;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  color: var(--color-foreground);
+  background: var(--color-background);
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+button {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

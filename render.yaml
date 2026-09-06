@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: velora-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    # The WebSocket hub keeps its subscribers in process memory, so a second
+    # instance would not see the first one's sockets. Clients still recover
+    # true state through GET /state, but live pushes only reach the instance
+    # holding the connection. Redis pub/sub fan-out is the fix; until then
+    # this stays at one instance.
+    numInstances: 1
+    envVars:
+      # Prompted for in the Render dashboard rather than stored in the repo.
+      - key: DATABASE_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      # Must include the Vercel origin, or the browser blocks every call.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SIMULATE_PATRONS
+        value: "1"

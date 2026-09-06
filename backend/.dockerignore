@@ -1,0 +1,16 @@
+# Secrets. db.py and seat_lock.py call load_dotenv(override=True), so a .env
+# inside the image would take precedence over the platform's own env vars.
+.env
+.env.*
+!.env.example
+
+# Local interpreter: large, and its scripts hardcode host paths.
+.venv/
+venv/
+
+__pycache__/
+*.py[cod]
+
+.git/
+.gitignore
+.DS_Store
