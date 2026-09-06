@@ -528,7 +528,7 @@ async def _simulate_patron(showing_id: int, index: int) -> None:
             seat_id = random.choice(open_seats)
 
             claim = await claim_seat(
-                app.state.redis, showing_id, seat_id, token, extra_seat_ids=ids
+                app.state.redis, showing_id, seat_id, token, extra_seat_ids=None
             )
             _apply_result_to_cache(showing_id, claim)
             await _publish(showing_id)
@@ -692,22 +692,48 @@ async def _seat_action(
         raise HTTPException(status_code=404, detail="seat not found")
 
     your_public = remember_holder(body.holder_id, body.holder_name)
-    if action == "claim":
-        result = await claim_seat(
-            app.state.redis,
-            showing_id,
-            seat_id,
-            body.holder_id,
-            extra_seat_ids=ids,
-        )
-    elif action == "book":
-        result = await book_seat(
-            app.state.redis, showing_id, seat_id, body.holder_id
-        )
-    else:
-        result = await release_seat(
-            app.state.redis, showing_id, seat_id, body.holder_id
-        )
+    try:
+        if action == "claim":
+            # Cap is checked here from the in-memory map. Passing all 96 seat
+            # keys into EVAL blows free-tier Upstash REST limits and 500s.
+            try:
+                live = await _get_live_map(showing_id)
+            except Exception:
+                live = _live_cache.get(showing_id) or {}
+            mine = sum(
+                1
+                for s in live.values()
+                if s.status == HELD and s.holder_id == your_public
+            )
+            if mine >= MAX_OWNED_SEATS:
+                return {
+                    "ok": False,
+                    "seat_id": seat_id,
+                    "status": "limit",
+                    "holder": your_public,
+                    "mine": True,
+                    "expires_at": None,
+                }
+            result = await claim_seat(
+                app.state.redis,
+                showing_id,
+                seat_id,
+                body.holder_id,
+                extra_seat_ids=None,
+            )
+        elif action == "book":
+            result = await book_seat(
+                app.state.redis, showing_id, seat_id, body.holder_id
+            )
+        else:
+            result = await release_seat(
+                app.state.redis, showing_id, seat_id, body.holder_id
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"seat action unavailable ({type(exc).__name__})",
+        ) from exc
 
     _apply_result_to_cache(showing_id, result)
     if result.ok:
@@ -826,7 +852,7 @@ async def race(showing_id: int, seat_id: str, body: RaceRequest) -> dict:
     async def run(token: str) -> ClaimResult:
         await gate.wait()
         return await claim_seat(
-            app.state.redis, showing_id, seat_id, token, extra_seat_ids=ids
+            app.state.redis, showing_id, seat_id, token, extra_seat_ids=None
         )
 
     tasks = [asyncio.create_task(run(token)) for _, token, _ in entrants]

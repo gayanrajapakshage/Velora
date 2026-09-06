@@ -124,16 +124,18 @@ async def _run(
         for other in extra_seat_ids:
             if other != seat_id:
                 keys.append(seat_key(showing_id, other))
-    raw = await redis.eval(
-        LUA_SCRIPT,
-        keys=keys,
-        args=[
-            action,
-            public_holder(holder_token),
-            str(now_ms()),
-            str(HOLD_TTL_SECONDS),
-            str(MAX_OWNED_SEATS),
-        ],
+    raw = await _redis_call(
+        lambda: redis.eval(
+            LUA_SCRIPT,
+            keys=keys,
+            args=[
+                action,
+                public_holder(holder_token),
+                str(now_ms()),
+                str(HOLD_TTL_SECONDS),
+                str(MAX_OWNED_SEATS),
+            ],
+        )
     )
     if not isinstance(raw, list) or len(raw) < 4:
         raise RuntimeError(f"unexpected EVAL result: {raw!r}")
@@ -161,9 +163,9 @@ async def claim_seat(
     decided by the same command that writes the hold, so there is no
     window where two callers can both believe the seat was free.
 
-    The 4-hold cap is counted in that same EVAL against the other seat
-    keys, so two clicks cannot both slip under the limit. Booked seats
-    are not counted — only live holds.
+    The 4-hold cap is enforced by the API against the in-process seat map
+    before this runs. Passing every seat key into EVAL is correct but too
+    heavy for free-tier Upstash REST, where it surfaces as intermittent 500s.
     """
     return await _run(
         redis, "claim", showing_id, seat_id, holder_token, extra_seat_ids
